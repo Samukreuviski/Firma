@@ -203,6 +203,28 @@
             text-align: center;
             padding: 20px;
             animation: fadeIn 1s;
+            position: relative;
+            z-index: 10;
+        }
+
+        /* CANVAS DE CONFETES */
+        #confetti-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* CONTEÚDO DA TELA FINAL (para ficar acima do confete) */
+        .success-content {
+            position: relative;
+            z-index: 2;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
         }
 
         .success-title {
@@ -262,10 +284,21 @@
 </head>
 <body>
 
-    <!-- ELEMENTOS DE ÁUDIO ESCONDIDOS (Melhor compatibilidade Mobile) -->
+    <!-- ELEMENTOS DE ÁUDIO (MIX ASSUSTADOR) -->
+    <!-- Som 1: Detector de fumaça -->
     <audio id="somSirene" loop preload="auto">
         <source src="https://www.soundjay.com/mechanical/sounds/smoke-detector-1.mp3" type="audio/mpeg">
     </audio>
+    <!-- Som 2: Estática/Chiado -->
+    <audio id="somGlitch" loop preload="auto">
+        <source src="https://www.soundjay.com/misc/sounds/static-noise-1.mp3" type="audio/mpeg">
+    </audio>
+    <!-- Som 3: Alerta -->
+    <audio id="somAlerta" loop preload="auto">
+        <source src="https://www.soundjay.com/buttons/sounds/beep-09.mp3" type="audio/mpeg">
+    </audio>
+    
+    <!-- Som Final: Aplausos -->
     <audio id="somAplausos" preload="auto">
         <source src="https://www.soundjay.com/human/sounds/applause-01.mp3" type="audio/mpeg">
     </audio>
@@ -311,7 +344,7 @@
             </p>
         </div>
 
-        <div class="countdown" id="timer">7</div>
+        <div class="countdown" id="timer">6</div>
         
         <div style="margin-top: 30px; font-size: 0.7rem; color: #555;">
             SYSTEM_FAILURE_0x00021<br>
@@ -321,21 +354,24 @@
 
     <!-- 3. TELA FINAL (SUCESSO) -->
     <div id="screen-success">
-        <div style="font-size: 4rem; margin-bottom: 10px;">😅</div>
-        <h2 class="success-title">Brincadeirinha!</h2>
-        <p style="color: #a8b2c1; max-width: 300px; line-height: 1.6; margin-bottom: 20px;">
-            Sua presença foi confirmada.<br>
-            Te espero lá!
-        </p>
+        <canvas id="confetti-canvas"></canvas>
+        <div class="success-content">
+            <div style="font-size: 4rem; margin-bottom: 10px;">😅</div>
+            <h2 class="success-title">Brincadeirinha!</h2>
+            <p style="color: #a8b2c1; max-width: 300px; line-height: 1.6; margin-bottom: 20px;">
+                Sua presença foi confirmada.<br>
+                Te espero lá!
+            </p>
 
-        <div style="color: var(--gold); font-size: 0.8rem; font-weight: bold; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px;">
-            👇 Entre no grupo para confirmar 👇
+            <div style="color: var(--gold); font-size: 0.8rem; font-weight: bold; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px;">
+                👇 Entre no grupo para confirmar 👇
+            </div>
+
+            <!-- Botão para ENTRAR NO GRUPO -->
+            <button id="btn-whatsapp-final" class="btn-whatsapp" onclick="abrirWhatsapp()">
+                Entrar no Grupo <i data-lucide="users" width="20"></i>
+            </button>
         </div>
-
-        <!-- Botão para ENTRAR NO GRUPO -->
-        <button id="btn-whatsapp-final" class="btn-whatsapp" onclick="abrirWhatsapp()">
-            Entrar no Grupo <i data-lucide="users" width="20"></i>
-        </button>
     </div>
 
     <script>
@@ -346,17 +382,23 @@
             document.getElementById('screen-invite').style.display = 'none';
             document.getElementById('screen-virus').style.display = 'flex';
             
-            // --- SOM: Toca a sirene (agora pegando do HTML) ---
-            const audioAlerta = document.getElementById('somSirene');
-            // Tenta tocar. Em mobile, isso funciona pois estamos dentro de um evento 'click'
-            audioAlerta.play().catch(e => console.log("O navegador bloqueou o som: " + e));
+            // --- SOM: Toca MÚLTIPLOS sons assustadores juntos ---
+            const audioSirene = document.getElementById('somSirene');
+            const audioGlitch = document.getElementById('somGlitch');
+            const audioAlerta = document.getElementById('somAlerta');
             
-            // Toca a contagem regressiva
-            let tempo = 7;
+            // Tenta tocar todos
+            audioSirene.play().catch(e => console.log("Erro som: " + e));
+            audioGlitch.volume = 0.5; // Ajusta volume para não estourar
+            audioGlitch.play().catch(e => {});
+            audioAlerta.play().catch(e => {});
+            
+            // Toca a contagem regressiva (agora 6 segundos)
+            let tempo = 6;
             const timerElement = document.getElementById('timer');
             
             // Tenta vibrar
-            if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+            if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 500]);
 
             const intervalo = setInterval(() => {
                 tempo--;
@@ -370,17 +412,20 @@
         }
 
         function finalizarPegadinha() {
-            // Para a sirene
-            const audioAlerta = document.getElementById('somSirene');
-            audioAlerta.pause();
-            audioAlerta.currentTime = 0;
+            // Para TODOS os sons assustadores
+            document.getElementById('somSirene').pause();
+            document.getElementById('somGlitch').pause();
+            document.getElementById('somAlerta').pause();
 
-            // Toca o som de sucesso/aplausos
+            // Toca o som de sucesso
             const audioSucesso = document.getElementById('somAplausos');
             audioSucesso.play().catch(e => console.log("Erro som sucesso: " + e));
 
             document.getElementById('screen-virus').style.display = 'none';
             document.getElementById('screen-success').style.display = 'flex';
+            
+            // Inicia os confetes
+            iniciarConfetes();
         }
 
         function abrirWhatsapp() {
@@ -394,6 +439,58 @@
             } else {
                 window.open(url, '_blank');
             }
+        }
+
+        // --- SISTEMA DE CONFETES SIMPLES ---
+        function iniciarConfetes() {
+            const canvas = document.getElementById('confetti-canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+
+            const confetes = [];
+            const cores = ['#D4AF37', '#F0F2F5', '#ff003c', '#00ff00', '#0000ff'];
+
+            // Cria 100 confetes
+            for (let i = 0; i < 100; i++) {
+                confetes.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height - canvas.height, // Começam acima da tela
+                    color: cores[Math.floor(Math.random() * cores.length)],
+                    size: Math.random() * 5 + 5,
+                    speedY: Math.random() * 3 + 2,
+                    speedX: Math.random() * 2 - 1,
+                    rotation: Math.random() * 360
+                });
+            }
+
+            function draw() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                let active = false;
+
+                confetes.forEach((c) => {
+                    // Se o confete ainda está na tela
+                    if (c.y < canvas.height) {
+                        active = true;
+                        c.y += c.speedY;
+                        c.x += c.speedX + Math.sin(c.y * 0.05); // Movimento ondulado
+                        c.rotation += 2;
+
+                        ctx.save();
+                        ctx.translate(c.x, c.y);
+                        ctx.rotate(c.rotation * Math.PI / 180);
+                        ctx.fillStyle = c.color;
+                        ctx.fillRect(-c.size / 2, -c.size / 2, c.size, c.size);
+                        ctx.restore();
+                    }
+                });
+
+                if (active) {
+                    requestAnimationFrame(draw);
+                }
+            }
+            
+            draw();
         }
     </script>
 </body>
