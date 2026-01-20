@@ -262,6 +262,14 @@
 </head>
 <body>
 
+    <!-- ELEMENTOS DE ÁUDIO ESCONDIDOS (Melhor compatibilidade Mobile) -->
+    <audio id="somSirene" loop preload="auto">
+        <source src="https://www.soundjay.com/mechanical/sounds/smoke-detector-1.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="somAplausos" preload="auto">
+        <source src="https://www.soundjay.com/human/sounds/applause-01.mp3" type="audio/mpeg">
+    </audio>
+
     <!-- 1. TELA DE CONVITE -->
     <div id="screen-invite">
         <div class="border-frame">
@@ -333,21 +341,15 @@
     <script>
         lucide.createIcons();
 
-        // --- SONS ---
-        // Sirene para o vírus
-        const audioAlerta = new Audio('https://www.soundjay.com/mechanical/sounds/smoke-detector-1.mp3');
-        audioAlerta.loop = true; // Faz o som repetir
-
-        // Aplausos/Festa para o final
-        const audioSucesso = new Audio('https://www.soundjay.com/human/sounds/applause-01.mp3');
-
         function iniciarPegadinha() {
             // Esconde convite, mostra virus
             document.getElementById('screen-invite').style.display = 'none';
             document.getElementById('screen-virus').style.display = 'flex';
             
-            // Toca a sirene
-            audioAlerta.play().catch(e => console.log("Navegador bloqueou áudio automático: ", e));
+            // --- SOM: Toca a sirene (agora pegando do HTML) ---
+            const audioAlerta = document.getElementById('somSirene');
+            // Tenta tocar. Em mobile, isso funciona pois estamos dentro de um evento 'click'
+            audioAlerta.play().catch(e => console.log("O navegador bloqueou o som: " + e));
             
             // Toca a contagem regressiva
             let tempo = 7;
@@ -369,11 +371,13 @@
 
         function finalizarPegadinha() {
             // Para a sirene
+            const audioAlerta = document.getElementById('somSirene');
             audioAlerta.pause();
             audioAlerta.currentTime = 0;
 
-            // Toca o som de sucesso
-            audioSucesso.play();
+            // Toca o som de sucesso/aplausos
+            const audioSucesso = document.getElementById('somAplausos');
+            audioSucesso.play().catch(e => console.log("Erro som sucesso: " + e));
 
             document.getElementById('screen-virus').style.display = 'none';
             document.getElementById('screen-success').style.display = 'flex';
