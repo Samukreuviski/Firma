@@ -327,7 +327,7 @@
             </p>
         </div>
 
-        <div class="countdown" id="timer">6</div>
+        <div class="countdown" id="timer">5</div>
         
         <div style="margin-top: 30px; font-size: 0.7rem; color: #555;">
             SYSTEM_FAILURE_0x00021<br>
@@ -361,7 +361,6 @@
         lucide.createIcons();
 
         // --- SISTEMA DE SOM SINTETIZADO (WEB AUDIO API) ---
-        // Isso garante que o som toque instantaneamente sem download
         let audioCtx;
         let oscillators = [];
 
@@ -375,48 +374,68 @@
         }
 
         function tocarSireneAssustadora() {
-            // Cria um oscilador principal (Sirene)
-            const osc = audioCtx.createOscillator();
-            const gainNode = audioCtx.createGain();
-            
-            osc.type = 'sawtooth'; // Som agudo e chato
-            osc.frequency.setValueAtTime(800, audioCtx.currentTime);
-            // Faz a frequência subir e descer (efeito sirene)
-            osc.frequency.linearRampToValueAtTime(1500, audioCtx.currentTime + 0.5);
-            osc.frequency.linearRampToValueAtTime(800, audioCtx.currentTime + 1.0);
-            
-            // Loop de sirene manual (simulado com LFO para simplificar ou reiniciar)
-            // Aqui vamos criar varios osciladores para gerar caos
-            
-            osc.connect(gainNode);
-            gainNode.connect(audioCtx.destination);
-            osc.start();
-            
-            // Modulação para fazer o som variar
-            const lfo = audioCtx.createOscillator();
-            lfo.type = 'sine';
-            lfo.frequency.value = 5; // Rapidez da sirene
-            const lfoGain = audioCtx.createGain();
-            lfoGain.gain.value = 500;
-            lfo.connect(lfoGain);
-            lfoGain.connect(osc.frequency);
-            lfo.start();
+            const now = audioCtx.currentTime;
 
-            oscillators.push(osc, lfo);
+            // 1. SIRENE PRINCIPAL (Aguda e Chata)
+            const osc1 = audioCtx.createOscillator();
+            const gain1 = audioCtx.createGain();
+            osc1.type = 'sawtooth';
+            // Frequência variando para parecer alarme
+            osc1.frequency.setValueAtTime(800, now);
+            osc1.frequency.linearRampToValueAtTime(1500, now + 0.5);
+            osc1.frequency.linearRampToValueAtTime(800, now + 1.0);
+            
+            // LFO para modular a sirene constantemente
+            const lfo1 = audioCtx.createOscillator();
+            lfo1.type = 'sine';
+            lfo1.frequency.value = 4; // Velocidade da sirene
+            const lfoGain1 = audioCtx.createGain();
+            lfoGain1.gain.value = 400; 
+            lfo1.connect(lfoGain1);
+            lfoGain1.connect(osc1.frequency);
+            lfo1.start();
 
-            // Som 2: Grave (Subwoofer)
-            const sub = audioCtx.createOscillator();
-            sub.type = 'square';
-            sub.frequency.value = 100;
-            const subGain = audioCtx.createGain();
-            subGain.gain.value = 0.5;
-            sub.connect(subGain);
-            subGain.connect(audioCtx.destination);
-            sub.start();
-            oscillators.push(sub);
+            // Volume controlado para não abafar os outros
+            gain1.gain.value = 0.3; 
+            
+            osc1.connect(gain1);
+            gain1.connect(audioCtx.destination);
+            osc1.start();
+            oscillators.push(osc1, lfo1);
 
-            // Som 3: Chiado/Glitch (Ruído Branco)
-            const bufferSize = audioCtx.sampleRate * 2; // 2 segundos
+            // 2. ALARME TIPO "CARRO" (Pulso Quadrado)
+            const osc2 = audioCtx.createOscillator();
+            const gain2 = audioCtx.createGain();
+            osc2.type = 'square';
+            osc2.frequency.value = 600;
+            
+            // LFO rápido para efeito de "Beep Beep Beep"
+            const lfo2 = audioCtx.createOscillator();
+            lfo2.type = 'square';
+            lfo2.frequency.value = 8; // 8 beeps por segundo
+            const lfoGain2 = audioCtx.createGain();
+            lfoGain2.gain.value = 1000; // Modulação forte (liga/desliga efeito)
+            // Na verdade, para ligar/desligar volume é melhor modular o ganho, mas modular freq também assusta
+            
+            // Vamos modular o GANHO para fazer beep beep
+            const ampLfo = audioCtx.createOscillator();
+            ampLfo.type = 'square';
+            ampLfo.frequency.value = 6;
+            const ampLfoGain = audioCtx.createGain();
+            ampLfoGain.gain.value = 0.3; // Amplitude do beep
+            
+            // Conexão direta do oscilador no ganho principal
+            gain2.gain.value = 0; // Começa mudo e o LFO abre o som
+            ampLfo.connect(gain2.gain);
+            ampLfo.start();
+
+            osc2.connect(gain2);
+            gain2.connect(audioCtx.destination);
+            osc2.start();
+            oscillators.push(osc2, ampLfo);
+
+            // 3. RUÍDO/ESTÁTICA (Fundo caótico)
+            const bufferSize = audioCtx.sampleRate * 2;
             const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
             const data = buffer.getChannelData(0);
             for (let i = 0; i < bufferSize; i++) {
@@ -426,11 +445,33 @@
             noise.buffer = buffer;
             noise.loop = true;
             const noiseGain = audioCtx.createGain();
-            noiseGain.gain.value = 0.2; // Volume mais baixo
+            noiseGain.gain.value = 0.2; // Volume constante de fundo
             noise.connect(noiseGain);
             noiseGain.connect(audioCtx.destination);
             noise.start();
             oscillators.push(noise);
+
+            // 4. SOM DE "DADOS/HACKING" (Aleatório e Rápido)
+            const osc3 = audioCtx.createOscillator();
+            const gain3 = audioCtx.createGain();
+            osc3.type = 'triangle';
+            osc3.frequency.value = 2000;
+            gain3.gain.value = 0.15;
+            
+            // LFO muito rápido para parecer dados corrompidos
+            const lfo3 = audioCtx.createOscillator();
+            lfo3.type = 'sawtooth'; 
+            lfo3.frequency.value = 15; 
+            const lfoGain3 = audioCtx.createGain();
+            lfoGain3.gain.value = 1500; 
+            lfo3.connect(lfoGain3);
+            lfoGain3.connect(osc3.frequency);
+            lfo3.start();
+
+            osc3.connect(gain3);
+            gain3.connect(audioCtx.destination);
+            osc3.start();
+            oscillators.push(osc3, lfo3);
         }
 
         function pararSonsAssustadores() {
@@ -441,8 +482,8 @@
         }
 
         function tocarSomSucesso() {
-            // Toca um acorde de "Vitória" (Dó Maior rápido)
-            const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+            // Toca um acorde de "Vitória"
+            const notes = [523.25, 659.25, 783.99, 1046.50]; 
             let time = audioCtx.currentTime;
             
             notes.forEach((freq, index) => {
@@ -452,13 +493,13 @@
                 osc.frequency.value = freq;
                 
                 gain.gain.setValueAtTime(0.3, time);
-                gain.gain.exponentialRampToValueAtTime(0.01, time + 0.5);
+                gain.gain.exponentialRampToValueAtTime(0.01, time + 0.8);
                 
                 osc.connect(gain);
                 gain.connect(audioCtx.destination);
                 
                 osc.start(time + (index * 0.1));
-                osc.stop(time + 1);
+                osc.stop(time + 1.5);
             });
         }
 
@@ -472,9 +513,10 @@
             // Toca a sirene gerada
             tocarSireneAssustadora();
             
-            // Toca a contagem regressiva
-            let tempo = 6;
+            // Toca a contagem regressiva (5 segundos)
+            let tempo = 5;
             const timerElement = document.getElementById('timer');
+            timerElement.innerText = tempo;
             
             // Tenta vibrar loucamente
             if (navigator.vibrate) navigator.vibrate([100, 50, 100, 50, 100, 50, 500, 500, 100]);
