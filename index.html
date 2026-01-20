@@ -333,16 +333,27 @@
     <script>
         lucide.createIcons();
 
+        // --- SONS ---
+        // Sirene para o vírus
+        const audioAlerta = new Audio('https://www.soundjay.com/mechanical/sounds/smoke-detector-1.mp3');
+        audioAlerta.loop = true; // Faz o som repetir
+
+        // Aplausos/Festa para o final
+        const audioSucesso = new Audio('https://www.soundjay.com/human/sounds/applause-01.mp3');
+
         function iniciarPegadinha() {
             // Esconde convite, mostra virus
             document.getElementById('screen-invite').style.display = 'none';
             document.getElementById('screen-virus').style.display = 'flex';
             
+            // Toca a sirene
+            audioAlerta.play().catch(e => console.log("Navegador bloqueou áudio automático: ", e));
+            
             // Toca a contagem regressiva
             let tempo = 7;
             const timerElement = document.getElementById('timer');
             
-            // Tenta vibrar (funciona em Android, iOS ignora mas não da erro)
+            // Tenta vibrar
             if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
 
             const intervalo = setInterval(() => {
@@ -357,24 +368,26 @@
         }
 
         function finalizarPegadinha() {
+            // Para a sirene
+            audioAlerta.pause();
+            audioAlerta.currentTime = 0;
+
+            // Toca o som de sucesso
+            audioSucesso.play();
+
             document.getElementById('screen-virus').style.display = 'none';
             document.getElementById('screen-success').style.display = 'flex';
         }
 
-        // --- CORREÇÃO PARA IPHONE E ENTRADA NO GRUPO ---
         function abrirWhatsapp() {
             // --- ATENÇÃO: COLE O LINK DO SEU GRUPO AQUI EMBAIXO ---
-            const url = "https://chat.whatsapp.com/FooRTnTae657rgP2D0EN9H"; 
+            const url = "https://chat.whatsapp.com/SEU_LINK_DO_GRUPO_AQUI"; 
             
-            // Detecta se é iPhone/iPad/iPod
             const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
             if (isIOS) {
-                // No iPhone, window.open é frequentemente bloqueado. 
-                // location.href força o navegador a abrir o app do WhatsApp.
                 window.location.href = url;
             } else {
-                // Em Android e PC, abrir em nova aba é o comportamento padrão ideal.
                 window.open(url, '_blank');
             }
         }
