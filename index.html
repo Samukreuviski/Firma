@@ -284,32 +284,7 @@
 </head>
 <body>
 
-    <!-- ELEMENTOS DE ÁUDIO (MIX DO CAOS) -->
-    
-    <!-- 1. Sirene Aguda (Detector de Fumaça) -->
-    <audio id="somSireneFina" loop preload="auto">
-        <source src="https://www.soundjay.com/mechanical/sounds/smoke-detector-1.mp3" type="audio/mpeg">
-    </audio>
-    
-    <!-- 2. Sirene Grave Contínua (Klaxon/Ataque Aéreo) -->
-    <audio id="somSireneGrossa" loop preload="auto">
-        <source src="https://www.soundjay.com/mechanical/sounds/klaxon-1.mp3" type="audio/mpeg">
-    </audio>
-    
-    <!-- 3. Som de Batida/Vidro Quebrando -->
-    <audio id="somVidro" preload="auto">
-        <source src="https://www.soundjay.com/misc/sounds/glass-break-1.mp3" type="audio/mpeg">
-    </audio>
-    
-    <!-- 4. Som de Hacking (Modem/Dados) -->
-    <audio id="somHacking" loop preload="auto">
-        <source src="https://www.soundjay.com/communication/sounds/dial-up-modem-01.mp3" type="audio/mpeg">
-    </audio>
-    
-    <!-- Som Final: Aplausos -->
-    <audio id="somAplausos" preload="auto">
-        <source src="https://www.soundjay.com/human/sounds/applause-01.mp3" type="audio/mpeg">
-    </audio>
+    <!-- NÃO PRECISA MAIS DE TAGS AUDIO - SONS SÃO GERADOS VIA CÓDIGO -->
 
     <!-- 1. TELA DE CONVITE -->
     <div id="screen-invite">
@@ -385,63 +360,119 @@
     <script>
         lucide.createIcons();
 
-        // --- PRÉ-CARREGAMENTO FORÇADO DOS SONS ---
-        window.addEventListener('load', function() {
-            const audios = [
-                document.getElementById('somSireneFina'),
-                document.getElementById('somSireneGrossa'),
-                document.getElementById('somVidro'),
-                document.getElementById('somHacking'),
-                document.getElementById('somAplausos')
-            ];
+        // --- SISTEMA DE SOM SINTETIZADO (WEB AUDIO API) ---
+        // Isso garante que o som toque instantaneamente sem download
+        let audioCtx;
+        let oscillators = [];
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        function tocarSireneAssustadora() {
+            // Cria um oscilador principal (Sirene)
+            const osc = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
             
-            // Força o navegador a carregar os metadados e o audio
-            audios.forEach(a => {
-                a.load();
-                a.muted = true; // Necessário para alguns navegadores permitirem o load sem play
-                // Tenta dar um play/pause rápido para "aquecer" se possível (alguns browsers bloqueiam, mas vale tentar)
-                const playPromise = a.play();
-                if (playPromise !== undefined) {
-                    playPromise.then(_ => {
-                        a.pause();
-                        a.muted = false;
-                        a.currentTime = 0;
-                    }).catch(error => {
-                        // Auto-play bloqueado, normal. O load() acima já ajuda.
-                        a.muted = false;
-                    });
-                }
+            osc.type = 'sawtooth'; // Som agudo e chato
+            osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+            // Faz a frequência subir e descer (efeito sirene)
+            osc.frequency.linearRampToValueAtTime(1500, audioCtx.currentTime + 0.5);
+            osc.frequency.linearRampToValueAtTime(800, audioCtx.currentTime + 1.0);
+            
+            // Loop de sirene manual (simulado com LFO para simplificar ou reiniciar)
+            // Aqui vamos criar varios osciladores para gerar caos
+            
+            osc.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            osc.start();
+            
+            // Modulação para fazer o som variar
+            const lfo = audioCtx.createOscillator();
+            lfo.type = 'sine';
+            lfo.frequency.value = 5; // Rapidez da sirene
+            const lfoGain = audioCtx.createGain();
+            lfoGain.gain.value = 500;
+            lfo.connect(lfoGain);
+            lfoGain.connect(osc.frequency);
+            lfo.start();
+
+            oscillators.push(osc, lfo);
+
+            // Som 2: Grave (Subwoofer)
+            const sub = audioCtx.createOscillator();
+            sub.type = 'square';
+            sub.frequency.value = 100;
+            const subGain = audioCtx.createGain();
+            subGain.gain.value = 0.5;
+            sub.connect(subGain);
+            subGain.connect(audioCtx.destination);
+            sub.start();
+            oscillators.push(sub);
+
+            // Som 3: Chiado/Glitch (Ruído Branco)
+            const bufferSize = audioCtx.sampleRate * 2; // 2 segundos
+            const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) {
+                data[i] = Math.random() * 2 - 1;
+            }
+            const noise = audioCtx.createBufferSource();
+            noise.buffer = buffer;
+            noise.loop = true;
+            const noiseGain = audioCtx.createGain();
+            noiseGain.gain.value = 0.2; // Volume mais baixo
+            noise.connect(noiseGain);
+            noiseGain.connect(audioCtx.destination);
+            noise.start();
+            oscillators.push(noise);
+        }
+
+        function pararSonsAssustadores() {
+            oscillators.forEach(osc => {
+                try { osc.stop(); } catch(e){}
             });
-        });
+            oscillators = [];
+        }
+
+        function tocarSomSucesso() {
+            // Toca um acorde de "Vitória" (Dó Maior rápido)
+            const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+            let time = audioCtx.currentTime;
+            
+            notes.forEach((freq, index) => {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.value = freq;
+                
+                gain.gain.setValueAtTime(0.3, time);
+                gain.gain.exponentialRampToValueAtTime(0.01, time + 0.5);
+                
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                
+                osc.start(time + (index * 0.1));
+                osc.stop(time + 1);
+            });
+        }
 
         function iniciarPegadinha() {
+            initAudio(); // Inicializa o motor de áudio no clique
+            
             // Esconde convite, mostra virus
             document.getElementById('screen-invite').style.display = 'none';
             document.getElementById('screen-virus').style.display = 'flex';
             
-            // --- SOM: O CAOS TOTAL ---
-            // Recupera todos os áudios
-            const s1 = document.getElementById('somSireneFina');
-            const s2 = document.getElementById('somSireneGrossa');
-            const s3 = document.getElementById('somVidro');
-            const s4 = document.getElementById('somHacking');
+            // Toca a sirene gerada
+            tocarSireneAssustadora();
             
-            // Garante que o mudo está desligado
-            s1.muted = false; s2.muted = false; s3.muted = false; s4.muted = false;
-
-            // Tenta tocar todos ao mesmo tempo
-            // Nota: O volume é ajustado para tentar equilibrar a barulheira
-            s1.volume = 1.0; 
-            s2.volume = 0.8;
-            s3.volume = 1.0;
-            s4.volume = 0.6;
-
-            s1.play().catch(e => console.log(e));
-            s2.play().catch(e => {});
-            s3.play().catch(e => {});
-            s4.play().catch(e => {});
-            
-            // Toca a contagem regressiva (6 segundos)
+            // Toca a contagem regressiva
             let tempo = 6;
             const timerElement = document.getElementById('timer');
             
@@ -460,22 +491,12 @@
         }
 
         function finalizarPegadinha() {
-            // Para TODOS os sons assustadores
-            document.getElementById('somSireneFina').pause();
-            document.getElementById('somSireneGrossa').pause();
-            document.getElementById('somHacking').pause();
-            // O som do vidro não precisa pausar pois é curto e não está em loop, mas por segurança:
-            document.getElementById('somVidro').pause();
-
-            // Toca o som de sucesso
-            const audioSucesso = document.getElementById('somAplausos');
-            audioSucesso.muted = false;
-            audioSucesso.play().catch(e => console.log("Erro som sucesso: " + e));
+            pararSonsAssustadores();
+            tocarSomSucesso();
 
             document.getElementById('screen-virus').style.display = 'none';
             document.getElementById('screen-success').style.display = 'flex';
             
-            // Inicia os confetes
             iniciarConfetes();
         }
 
@@ -502,11 +523,10 @@
             const confetes = [];
             const cores = ['#D4AF37', '#F0F2F5', '#ff003c', '#00ff00', '#0000ff'];
 
-            // Cria 100 confetes
             for (let i = 0; i < 100; i++) {
                 confetes.push({
                     x: Math.random() * canvas.width,
-                    y: Math.random() * canvas.height - canvas.height, // Começam acima da tela
+                    y: Math.random() * canvas.height - canvas.height,
                     color: cores[Math.floor(Math.random() * cores.length)],
                     size: Math.random() * 5 + 5,
                     speedY: Math.random() * 3 + 2,
@@ -520,11 +540,10 @@
                 let active = false;
 
                 confetes.forEach((c) => {
-                    // Se o confete ainda está na tela
                     if (c.y < canvas.height) {
                         active = true;
                         c.y += c.speedY;
-                        c.x += c.speedX + Math.sin(c.y * 0.05); // Movimento ondulado
+                        c.x += c.speedX + Math.sin(c.y * 0.05);
                         c.rotation += 2;
 
                         ctx.save();
@@ -540,7 +559,6 @@
                     requestAnimationFrame(draw);
                 }
             }
-            
             draw();
         }
     </script>
