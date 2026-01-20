@@ -284,8 +284,6 @@
 </head>
 <body>
 
-    <!-- NÃO PRECISA MAIS DE TAGS AUDIO - SONS SÃO GERADOS VIA CÓDIGO -->
-
     <!-- 1. TELA DE CONVITE -->
     <div id="screen-invite">
         <div class="border-frame">
@@ -363,6 +361,7 @@
         // --- SISTEMA DE SOM SINTETIZADO (WEB AUDIO API) ---
         let audioCtx;
         let oscillators = [];
+        let glassInterval;
 
         function initAudio() {
             if (!audioCtx) {
@@ -373,6 +372,56 @@
             }
         }
 
+        // Função auxiliar para criar distorção (Siren Head)
+        function makeDistortionCurve(amount) {
+            let k = typeof amount === 'number' ? amount : 50,
+                n_samples = 44100,
+                curve = new Float32Array(n_samples),
+                deg = Math.PI / 180,
+                i = 0,
+                x;
+            for ( ; i < n_samples; ++i ) {
+                x = i * 2 / n_samples - 1;
+                curve[i] = ( 3 + k ) * x * 20 * deg / ( Math.PI + k * Math.abs(x) );
+            }
+            return curve;
+        }
+
+        // Função para gerar som de vidro quebrando sintético
+        function playGlassBreak() {
+            if (!audioCtx) return;
+            const t = audioCtx.currentTime;
+            
+            // Ruído Branco
+            const bufferSize = audioCtx.sampleRate * 0.5; // 0.5 segundos
+            const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) {
+                data[i] = Math.random() * 2 - 1;
+            }
+            
+            const noise = audioCtx.createBufferSource();
+            noise.buffer = buffer;
+            
+            // Filtro para tirar os graves e deixar agudo (estilhaços)
+            const filter = audioCtx.createBiquadFilter();
+            filter.type = "highpass";
+            filter.frequency.value = 2000;
+            
+            const gain = audioCtx.createGain();
+            
+            // Envelope de volume (ataque explosivo, decaimento rápido)
+            gain.gain.setValueAtTime(0.8, t);
+            gain.gain.exponentialRampToValueAtTime(0.01, t + 0.3);
+            
+            noise.connect(filter);
+            filter.connect(gain);
+            gain.connect(audioCtx.destination);
+            
+            noise.start(t);
+            noise.stop(t + 0.5);
+        }
+
         function tocarSireneAssustadora() {
             const now = audioCtx.currentTime;
 
@@ -380,22 +429,19 @@
             const osc1 = audioCtx.createOscillator();
             const gain1 = audioCtx.createGain();
             osc1.type = 'sawtooth';
-            // Frequência variando para parecer alarme
             osc1.frequency.setValueAtTime(800, now);
             osc1.frequency.linearRampToValueAtTime(1500, now + 0.5);
             osc1.frequency.linearRampToValueAtTime(800, now + 1.0);
             
-            // LFO para modular a sirene constantemente
             const lfo1 = audioCtx.createOscillator();
             lfo1.type = 'sine';
-            lfo1.frequency.value = 4; // Velocidade da sirene
+            lfo1.frequency.value = 4; 
             const lfoGain1 = audioCtx.createGain();
             lfoGain1.gain.value = 400; 
             lfo1.connect(lfoGain1);
             lfoGain1.connect(osc1.frequency);
             lfo1.start();
 
-            // Volume controlado para não abafar os outros
             gain1.gain.value = 0.3; 
             
             osc1.connect(gain1);
@@ -403,29 +449,49 @@
             osc1.start();
             oscillators.push(osc1, lfo1);
 
-            // 2. ALARME TIPO "CARRO" (Pulso Quadrado)
+            // 2. SIREN HEAD (Grave, Distorcido e Assustador)
+            const oscSH = audioCtx.createOscillator();
+            const gainSH = audioCtx.createGain();
+            const distortion = audioCtx.createWaveShaper();
+            
+            oscSH.type = 'sawtooth';
+            oscSH.frequency.value = 120; // Frequência base grave
+            
+            // LFO lento para o uivo do Siren Head
+            const lfoSH = audioCtx.createOscillator();
+            lfoSH.type = 'sine';
+            lfoSH.frequency.value = 0.2; // Bem lento
+            const lfoGainSH = audioCtx.createGain();
+            lfoGainSH.gain.value = 50; // Variação de pitch
+            lfoSH.connect(lfoGainSH);
+            lfoGainSH.connect(oscSH.frequency);
+            lfoSH.start();
+
+            // Adiciona Distorção
+            distortion.curve = makeDistortionCurve(400);
+            distortion.oversample = '4x';
+
+            gainSH.gain.value = 0.6; // Volume alto para o Siren Head
+
+            oscSH.connect(distortion);
+            distortion.connect(gainSH);
+            gainSH.connect(audioCtx.destination);
+            oscSH.start();
+            oscillators.push(oscSH, lfoSH);
+
+            // 3. ALARME TIPO "CARRO" (Pulso Quadrado)
             const osc2 = audioCtx.createOscillator();
             const gain2 = audioCtx.createGain();
             osc2.type = 'square';
             osc2.frequency.value = 600;
             
-            // LFO rápido para efeito de "Beep Beep Beep"
-            const lfo2 = audioCtx.createOscillator();
-            lfo2.type = 'square';
-            lfo2.frequency.value = 8; // 8 beeps por segundo
-            const lfoGain2 = audioCtx.createGain();
-            lfoGain2.gain.value = 1000; // Modulação forte (liga/desliga efeito)
-            // Na verdade, para ligar/desligar volume é melhor modular o ganho, mas modular freq também assusta
-            
-            // Vamos modular o GANHO para fazer beep beep
             const ampLfo = audioCtx.createOscillator();
             ampLfo.type = 'square';
             ampLfo.frequency.value = 6;
             const ampLfoGain = audioCtx.createGain();
-            ampLfoGain.gain.value = 0.3; // Amplitude do beep
+            ampLfoGain.gain.value = 0.3; 
             
-            // Conexão direta do oscilador no ganho principal
-            gain2.gain.value = 0; // Começa mudo e o LFO abre o som
+            gain2.gain.value = 0; 
             ampLfo.connect(gain2.gain);
             ampLfo.start();
 
@@ -434,7 +500,7 @@
             osc2.start();
             oscillators.push(osc2, ampLfo);
 
-            // 3. RUÍDO/ESTÁTICA (Fundo caótico)
+            // 4. RUÍDO/ESTÁTICA (Fundo)
             const bufferSize = audioCtx.sampleRate * 2;
             const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
             const data = buffer.getChannelData(0);
@@ -445,20 +511,19 @@
             noise.buffer = buffer;
             noise.loop = true;
             const noiseGain = audioCtx.createGain();
-            noiseGain.gain.value = 0.2; // Volume constante de fundo
+            noiseGain.gain.value = 0.15; 
             noise.connect(noiseGain);
             noiseGain.connect(audioCtx.destination);
             noise.start();
             oscillators.push(noise);
 
-            // 4. SOM DE "DADOS/HACKING" (Aleatório e Rápido)
+            // 5. SOM DE "DADOS/HACKING" (Aleatório e Rápido)
             const osc3 = audioCtx.createOscillator();
             const gain3 = audioCtx.createGain();
             osc3.type = 'triangle';
             osc3.frequency.value = 2000;
             gain3.gain.value = 0.15;
             
-            // LFO muito rápido para parecer dados corrompidos
             const lfo3 = audioCtx.createOscillator();
             lfo3.type = 'sawtooth'; 
             lfo3.frequency.value = 15; 
@@ -472,6 +537,13 @@
             gain3.connect(audioCtx.destination);
             osc3.start();
             oscillators.push(osc3, lfo3);
+
+            // 6. LOOP DE VIDRO QUEBRANDO
+            // Toca aleatoriamente a cada 500ms - 1500ms
+            glassInterval = setInterval(() => {
+                if (Math.random() > 0.5) playGlassBreak();
+            }, 800);
+            playGlassBreak(); // Toca um logo de cara
         }
 
         function pararSonsAssustadores() {
@@ -479,12 +551,14 @@
                 try { osc.stop(); } catch(e){}
             });
             oscillators = [];
+            if (glassInterval) clearInterval(glassInterval);
         }
 
         function tocarSomSucesso() {
-            // Toca um acorde de "Vitória"
+            const now = audioCtx.currentTime;
+            
+            // 1. ACORDE DE VITÓRIA (Dó Maior)
             const notes = [523.25, 659.25, 783.99, 1046.50]; 
-            let time = audioCtx.currentTime;
             
             notes.forEach((freq, index) => {
                 const osc = audioCtx.createOscillator();
@@ -492,15 +566,44 @@
                 osc.type = 'sine';
                 osc.frequency.value = freq;
                 
-                gain.gain.setValueAtTime(0.3, time);
-                gain.gain.exponentialRampToValueAtTime(0.01, time + 0.8);
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 1.5);
                 
                 osc.connect(gain);
                 gain.connect(audioCtx.destination);
                 
-                osc.start(time + (index * 0.1));
-                osc.stop(time + 1.5);
+                osc.start(now + (index * 0.05));
+                osc.stop(now + 2);
             });
+
+            // 2. SIMULAÇÃO DE PALMAS/FOGOS (Ruído Rosa com Envelopes)
+            for (let i = 0; i < 8; i++) {
+                const start = now + (i * 0.15) + (Math.random() * 0.05); // Palmas desencontradas
+                const bufferSize = audioCtx.sampleRate * 0.2;
+                const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let j = 0; j < bufferSize; j++) {
+                    data[j] = (Math.random() * 2 - 1) * 0.5; // Ruído
+                }
+                
+                const noise = audioCtx.createBufferSource();
+                noise.buffer = buffer;
+                
+                // Filtro para soar mais como palmas (médios)
+                const filter = audioCtx.createBiquadFilter();
+                filter.type = "bandpass";
+                filter.frequency.value = 1000;
+                
+                const gain = audioCtx.createGain();
+                gain.gain.setValueAtTime(0.5, start);
+                gain.gain.exponentialRampToValueAtTime(0.01, start + 0.1); // Palma curta
+                
+                noise.connect(filter);
+                filter.connect(gain);
+                gain.connect(audioCtx.destination);
+                
+                noise.start(start);
+            }
         }
 
         function iniciarPegadinha() {
@@ -510,7 +613,7 @@
             document.getElementById('screen-invite').style.display = 'none';
             document.getElementById('screen-virus').style.display = 'flex';
             
-            // Toca a sirene gerada
+            // Toca o caos sonoro
             tocarSireneAssustadora();
             
             // Toca a contagem regressiva (5 segundos)
@@ -544,7 +647,7 @@
 
         function abrirWhatsapp() {
             // --- ATENÇÃO: COLE O LINK DO SEU GRUPO AQUI EMBAIXO ---
-            const url = "https://chat.whatsapp.com/SEU_LINK_DO_GRUPO_AQUI"; 
+            const url = "https://chat.whatsapp.com/FooRTnTae657rgP2D0EN9H"; 
             
             const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
