@@ -385,6 +385,35 @@
     <script>
         lucide.createIcons();
 
+        // --- PRÉ-CARREGAMENTO FORÇADO DOS SONS ---
+        window.addEventListener('load', function() {
+            const audios = [
+                document.getElementById('somSireneFina'),
+                document.getElementById('somSireneGrossa'),
+                document.getElementById('somVidro'),
+                document.getElementById('somHacking'),
+                document.getElementById('somAplausos')
+            ];
+            
+            // Força o navegador a carregar os metadados e o audio
+            audios.forEach(a => {
+                a.load();
+                a.muted = true; // Necessário para alguns navegadores permitirem o load sem play
+                // Tenta dar um play/pause rápido para "aquecer" se possível (alguns browsers bloqueiam, mas vale tentar)
+                const playPromise = a.play();
+                if (playPromise !== undefined) {
+                    playPromise.then(_ => {
+                        a.pause();
+                        a.muted = false;
+                        a.currentTime = 0;
+                    }).catch(error => {
+                        // Auto-play bloqueado, normal. O load() acima já ajuda.
+                        a.muted = false;
+                    });
+                }
+            });
+        });
+
         function iniciarPegadinha() {
             // Esconde convite, mostra virus
             document.getElementById('screen-invite').style.display = 'none';
@@ -397,6 +426,9 @@
             const s3 = document.getElementById('somVidro');
             const s4 = document.getElementById('somHacking');
             
+            // Garante que o mudo está desligado
+            s1.muted = false; s2.muted = false; s3.muted = false; s4.muted = false;
+
             // Tenta tocar todos ao mesmo tempo
             // Nota: O volume é ajustado para tentar equilibrar a barulheira
             s1.volume = 1.0; 
@@ -437,6 +469,7 @@
 
             // Toca o som de sucesso
             const audioSucesso = document.getElementById('somAplausos');
+            audioSucesso.muted = false;
             audioSucesso.play().catch(e => console.log("Erro som sucesso: " + e));
 
             document.getElementById('screen-virus').style.display = 'none';
