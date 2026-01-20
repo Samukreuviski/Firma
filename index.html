@@ -321,12 +321,12 @@
         </p>
 
         <div style="color: var(--gold); font-size: 0.8rem; font-weight: bold; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px;">
-            👇 Selecione o grupo e mande a mensagem 👇
+            👇 Entre no grupo para confirmar 👇
         </div>
 
-        <!-- Botão para enviar mensagem -->
+        <!-- Botão para ENTRAR NO GRUPO -->
         <button id="btn-whatsapp-final" class="btn-whatsapp" onclick="abrirWhatsapp()">
-            Enviar no Grupo <i data-lucide="send" width="20"></i>
+            Entrar no Grupo <i data-lucide="users" width="20"></i>
         </button>
     </div>
 
@@ -361,12 +361,10 @@
             document.getElementById('screen-success').style.display = 'flex';
         }
 
-        // --- CORREÇÃO PARA IPHONE E WHATSAPP ---
+        // --- CORREÇÃO PARA IPHONE E ENTRADA NO GRUPO ---
         function abrirWhatsapp() {
-            const textoMensagem = "Pode confirmar minha presença! 🍕🥳";
-            
-            // URL mais robusta que wa.me para compatibilidade
-            const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(textoMensagem)}`;
+            // --- ATENÇÃO: COLE O LINK DO SEU GRUPO AQUI EMBAIXO ---
+            const url = "https://chat.whatsapp.com/FooRTnTae657rgP2D0EN9H"; 
             
             // Detecta se é iPhone/iPad/iPod
             const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
